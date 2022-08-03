@@ -1,0 +1,192 @@
+# Author: Ram Bolla
+# Description: Creates Task Definition for ECS Cluster
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECS Task Definition'
+Parameters:
+  TaskDeinitionName:
+    Type: String
+    Description: "Name your Task Definition"
+  TaskCompatibility:
+    Type: String
+    Description: "Select Task Compatibility Type"
+    Default: "FARGATE"
+    AllowedValues:
+      - "FARGATE"
+      #- "EC2"
+  TaskRoleArn:
+    Type: String
+    Description: "ARN of IAM Role, IAM role that tasks can use to make API requests to authorized AWS services"
+  ExecutionRoleArn:
+    Type: String
+    Description: "Execution Role ARN,This role is required by Fargate tasks to pull container images and publish container logs to Amazon CloudWatch on your behalf"
+  DefaultContainerCpu:
+    Type: Number
+    Description: "Amount of CPU for the container - options available: https://aws.amazon.com/fargate/pricing/"
+    Default: 256
+    MinValue: 256
+    MaxValue: 4096
+    ConstraintDescription: "Value must be between 256 and 4096 - see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size"
+  DefaultContainerMemory:
+    Type: Number
+    Description: "Amount of memory for the container - options available: https://aws.amazon.com/fargate/pricing/"
+    Default: 512
+    MinValue: 512
+    MaxValue: 30720
+    ConstraintDescription: "Value must be between 512 and 30720 - see: https://aws.amazon.com/fargate/pricing/"
+  ContainerName:
+    Type: String
+    Description: "Name of the Container"
+  ContainerImagePath:
+    Type: String
+    Description: "URI of Docker Images, we can specify ECR or Docker URI, Ex: <RepoURI>:tag"
+  SecretsManagerARN:
+    Type: String
+    Description: "ARN of the Secrets Manager for Artifactory"
+  ContainerPort:
+    Type: Number
+    Description: "Container Port for mapping with host port"
+  #HostPort:
+  #  Type: Number
+  #  Description: "Host Port number for container instance"
+  #  Default: '0'
+  Protocol:
+    Type: String
+    Description: "Protocol Used for Port Mapping"
+    Default: 'tcp'
+  EnvironmentVariableName1:
+    Type: String
+    Description: "Environment variable name which can be read from the container"
+    Default: ''
+  EnvironmentVariableValue1:
+    Type: String
+    Description: "Environment variable value which can be read from the container"
+    Default: ''
+#################### X-Ray Tracing #########################
+  xrayContainerName:
+    Type: String
+    Description: "Name of the Container"
+  xrayContainerImagePath:
+    Type: String
+    Description: "URI of Docker Images, we can specify ECR or Docker URI, Ex: <RepoURI>:tag"
+  xrayContainerPort:
+    Type: Number
+    Description: "Container Port for mapping with host port"
+  xrayProtocol:
+    Type: String
+    Description: "Protocol Used for Port Mapping"
+    Default: 'tcp'
+#Log Tag
+  RetentionInDays:
+    Type: String
+    Description: "The number of days to retain the log events in the specified log group"
+    Default: "90"
+    AllowedValues:
+      - "1"
+      - "3"
+      - "5"
+      - "7"
+      - "11"
+      - "14"
+      - "30"
+      - "60"
+      - "90"
+  KmsKeyId:
+    Description: "The ID of the KMS key used to encrypt log data"
+    Type: String
+    Default: ''
+
+Conditions:
+  HasCustomerManagedKey: !Not [!Equals [!Ref KmsKeyId, '']]
+  #addhostport: !Not [!Equals [ '0', !Ref HostPort]]
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Launch type compatibility"
+      Parameters:
+        - TaskCompatibility
+        - Key
+    -
+      Label:
+        default: "Configure task"
+      Parameters:
+        - TaskDeinitionName
+        - DefaultContainerCpu
+        - DefaultContainerMemory
+        - TaskRoleArn
+        - ExecutionRoleArn
+    -
+      Label:
+        default: "Container definitions"
+      Parameters:
+        - ContainerName
+        - ContainerImagePath
+        - ContainerPort
+        #- HostPort
+        - Protocol
+
+Resources:
+  EventLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "${TaskDeinitionName}/aws/ecs/"
+      RetentionInDays: !Ref RetentionInDays
+      KmsKeyId: !If [HasCustomerManagedKey, !Ref KmsKeyId, !Ref 'AWS::NoValue']
+  EventLogStream:
+    Type: AWS::Logs::LogStream
+    DependsOn: EventLogGroup
+    Properties:
+      LogGroupName: !Ref EventLogGroup
+      LogStreamName: !Sub '${TaskDeinitionName}'
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref TaskDeinitionName
+      RequiresCompatibilities:
+        - !Ref TaskCompatibility
+      Cpu: !Ref DefaultContainerCpu
+      Memory: !Ref DefaultContainerMemory
+      NetworkMode: awsvpc
+      TaskRoleArn: !Ref TaskRoleArn
+      ExecutionRoleArn: !Ref ExecutionRoleArn
+      ContainerDefinitions:
+        - Name: !Ref ContainerName
+          Image: !Ref ContainerImagePath
+          RepositoryCredentials:
+            CredentialsParameter: !Ref SecretsManagerARN
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              #HostPort: !If [addhostport, !Ref HostPort, !Ref 'AWS::NoValue']
+              Protocol: !Ref Protocol
+          Environment:
+            - Name: !Ref EnvironmentVariableName1
+              Value: !Ref EnvironmentVariableValue1
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Sub "${TaskDeinitionName}/aws/ecs/"
+              awslogs-stream-prefix: !Ref TaskDeinitionName
+        - Name: !Ref xrayContainerName
+          Image: !Ref xrayContainerImagePath
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref xrayContainerPort
+              #HostPort: !If [addhostport, !Ref HostPort, !Ref 'AWS::NoValue']
+              Protocol: !Ref xrayProtocol
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Sub "${TaskDeinitionName}/aws/ecs/"
+              awslogs-stream-prefix: !Ref xrayContainerName
+      Tags:
+        - Key: Name
+          Value: !Ref TaskDeinitionName
+Outputs:
+  ECSTaskDefinitionARN:
+    Value: !Ref ECSTaskDefinition

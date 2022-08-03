@@ -1,0 +1,353 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Platform services : Stack for Grief Management ElasticSearch domain"
+Parameters:
+  #  Required parameters
+  EnvironmentSuffix:
+    Type: String
+  DomainName:
+    Type: String
+    Description: Name of your elastic search domain
+    # Domain name must be equal or shorter 28 characters
+    Default: "pfm-infra-grief-es"
+  ESVersion:
+    Type: String
+    Description: Elastic Search Version
+    Default: "7.4"
+    AllowedValues:
+      - "7.4"
+      - "7.1"
+      - "6.8"
+      - "6.7"
+      - "6.6"
+      - "6.5"
+      - "6.4"
+      - "6.3"
+      - "6.2"
+      - "6.1"
+      - "6.0"
+  InstanceType:
+    Description: "ES Instance Type, to enable encryption please select more than t2"
+    Type: String
+    Default: "m4.large.elasticsearch"
+    AllowedValues:
+      - "t2.small.elasticsearch"
+      - "t2.medium.elasticsearch"
+      - "c4.large.elasticsearch"
+      - "c4.xlarge.elasticsearch"
+      - "c4.2xlarge.elasticsearch"
+      - "c4.4xlarge.elasticsearch"
+      - "c4.8xlarge.elasticsearch"
+      - "m3.medium.elasticsearch"
+      - "m3.large.elasticsearch"
+      - "m3.xlarge.elasticsearch"
+      - "m3.2xlarge.elasticsearch"
+      - "m4.large.elasticsearch"
+      - "m4.xlarge.elasticsearch"
+      - "m4.2xlarge.elasticsearch"
+      - "m4.4xlarge.elasticsearch"
+      - "m4.10xlarge.elasticsearch"
+      - "r3.large.elasticsearch"
+      - "r3.xlarge.elasticsearch"
+      - "r3.2xlarge.elasticsearch"
+      - "r3.4xlarge.elasticsearch"
+      - "r3.8xlarge.elasticsearch"
+      - "r4.xlarge.elasticsearch"
+  ZoneAwareness:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+  InstanceCount:
+    Type: Number
+    Default: 4
+  Volumesize:
+    Type: Number
+    Description: Enter Size of your volume in GB.
+    Default: "50"
+    MinValue: "4"
+    MaxValue: "16384"
+    ConstraintDescription: "Accepts only numbers and range between 4-16384"
+  Volumetype:
+    Type: String
+    Default: "gp2"
+    AllowedValues:
+      - "gp2"
+      - "io1"
+  IOPS:
+    Type: Number
+    Default: "200"
+    MinValue: "100"
+    MaxValue: "32000"
+    ConstraintDescription: "For Provisioned IOPS (SSD) volumes, you can provision up to 50 IOPS per GiB"
+  EnableDedicatedMaster:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+  DedicatedMasterType:
+    Type: String
+    Default: "m4.large.elasticsearch"
+    AllowedValues:
+      - "t2.small.elasticsearch"
+      - "t2.medium.elasticsearch"
+      - "c4.large.elasticsearch"
+      - "c4.xlarge.elasticsearch"
+      - "c4.2xlarge.elasticsearch"
+      - "c4.4xlarge.elasticsearch"
+      - "c4.8xlarge.elasticsearch"
+      - "m3.medium.elasticsearch"
+      - "m3.large.elasticsearch"
+      - "m3.xlarge.elasticsearch"
+      - "m3.2xlarge.elasticsearch"
+      - "m4.large.elasticsearch"
+      - "m4.xlarge.elasticsearch"
+      - "m4.2xlarge.elasticsearch"
+      - "m4.4xlarge.elasticsearch"
+      - "m4.10xlarge.elasticsearch"
+      - "r3.large.elasticsearch"
+      - "r3.xlarge.elasticsearch"
+      - "r3.2xlarge.elasticsearch"
+      - "r3.4xlarge.elasticsearch"
+      - "r3.8xlarge.elasticsearch"
+  DedicatedMasterCount:
+    Type: Number
+    Default: 3
+    MinValue: 2
+    MaxValue: 5
+  techowner:
+    Type: String
+    Default: "default_techowner@cat.com"
+    Description: Email contact of the technical owner for this instance
+    AllowedPattern: "[a-zA-Z]([a-zA-Z0-9_.-]*+@[a-zA-Z0-9.]+[a-zA-Z])"
+    ConstraintDescription: "Must start with alphabet,Allowed alphanumeric and _.-"
+  businessowner:
+    Type: String
+    Description: Email contact of the business owner for this instance, it has to be cat email.
+    Default: "default_businessowner@cat.com"
+    AllowedPattern: "[a-zA-Z]([a-zA-Z0-9_.-]*+@cat.com)"
+    ConstraintDescription: "Must start with alphabet,Allowed alphanumeric and _.- and only accepts which ends with @cat.com"
+  managedby:
+    Type: String
+    Default: "eCat"
+  chargecode:
+    Type: String
+    Default: "catchargecode"
+  environment:
+    Type: String
+    Default: "Dev"
+    AllowedValues:
+      - "SB"
+      - "Dev"
+      - "Int"
+      - "Prod"
+  applicationname:
+    Type: String
+    Default: "tbd"
+  applicationid:
+    Type: String
+    Default: "tbd"
+  dataclassification:
+    Type: String
+    Default: "Yellow"
+Mappings:
+  # Values specific to each environment
+  EnvMap:
+    dev:
+      CFNRoleArn: "arn:aws:iam::900182000710:role/catdigital-azdo-cfn-platform-echo-us-east-2-role"
+      Subnets1: "subnet-089242921b4b34b0a"
+      Subnets2: "subnet-0463ffd0fc7037c87"
+      Subnets3: "subnet-054852b6c26bf1282"
+      SecurityGroupId: "sg-0a18e7e91d2603738"
+      AvailabilityZoneCountNumber: "3"
+    int:
+      CFNRoleArn: "arn:aws:iam::460510738068:role/catdigital-azdo-cfn-platform-echo-int-us-east-2-role"
+      Subnets1: "subnet-00adf803cfd90c0d7"
+      Subnets2: "subnet-0411dde75ee3368fa"
+      Subnets3: "subnet-0096348959a102094"
+      SecurityGroupId: "sg-0f9b87a8c6adbe7fd"
+      AvailabilityZoneCountNumber: "3"
+    prod:
+      CFNRoleArn: "arn:aws:iam::070133345649:role/catdigital-azdo-cfn-platform-echo-prod-us-east-2-role"
+      Subnets1: "subnet-04d2e7a2a6f381080"
+      Subnets2: "subnet-0fa1461f46f3e7d00"
+      Subnets3: "subnet-0c3b9e54de3da5c85"
+      SecurityGroupId: "sg-0157a855cd1490ec1"
+      AvailabilityZoneCountNumber: "3"
+Conditions:
+  ESEnableMaster: !Equals ["true", !Ref EnableDedicatedMaster]
+  ESZoneAwareness: !Equals ["true", !Ref ZoneAwareness]
+  CreateIops: !Equals ["io1", !Ref Volumetype]
+Resources:
+  KMSKey:
+    #Reference: https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-default
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "KMS key for encrypting Elasticsearch"
+      Enabled: "true"
+      EnableKeyRotation: "true"
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "Enable root access"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: "Enable management access"
+            Effect: "Allow"
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:role/SystemAdmin"
+                - !FindInMap [EnvMap, Ref: EnvironmentSuffix, CFNRoleArn]
+            Action:
+              - "kms:Create*"
+              - "kms:Describe*"
+              - "kms:Enable*"
+              - "kms:List*"
+              - "kms:Put*"
+              - "kms:Update*"
+              - "kms:Revoke*"
+              - "kms:Disable*"
+              - "kms:Get*"
+              - "kms:Delete*"
+              - "kms:TagResource"
+              - "kms:UntagResource"
+              - "kms:ScheduleKeyDeletion"
+              - "kms:CancelKeyDeletion"
+            Resource: "*"
+          - Sid: "Enable Elasticsearch access"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService"
+            Action:
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:DescribeKey"
+            Resource: "*"
+          - Sid: "Allow attachment of persistent resources"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService"
+            Action:
+              - "kms:CreateGrant"
+              - "kms:ListGrants"
+              - "kms:RevokeGrant"
+            Resource: "*"
+            Condition:
+              Bool:
+                kms:GrantIsForAWSResource: "true"
+      Tags:
+        - Key: techowner
+          Value: !Ref techowner
+        - Key: businessowner
+          Value: !Ref businessowner
+        - Key: managedby
+          Value: !Ref managedby
+        - Key: chargecode
+          Value: !Ref chargecode
+        - Key: environment
+          Value: !Ref environment
+        - Key: applicationname
+          Value: !Ref applicationname
+        - Key: applicationid
+          Value: !Ref applicationid
+        - Key: riskdomain
+          Value: "dl"
+        - Key: dataclassification
+          Value: !Ref dataclassification
+  KMSAlias:
+    Type: "AWS::KMS::Alias"
+    Properties:
+      AliasName: !Sub "alias/${DomainName}-encryption-key"
+      TargetKeyId: !Ref KMSKey
+
+  ElasticsearchDomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      AccessPolicies:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - "es:*"
+            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}/*"
+      DomainName: !Ref DomainName
+      ElasticsearchVersion: !Ref ESVersion
+      ElasticsearchClusterConfig:
+        DedicatedMasterEnabled: !Ref EnableDedicatedMaster
+        DedicatedMasterType:
+          !If [ESEnableMaster, !Ref DedicatedMasterType, !Ref "AWS::NoValue"]
+        DedicatedMasterCount:
+          !If [ESEnableMaster, !Ref DedicatedMasterCount, !Ref "AWS::NoValue"]
+        InstanceCount: !Ref InstanceCount
+        ZoneAwarenessEnabled: !Ref ZoneAwareness
+        ZoneAwarenessConfig:
+          AvailabilityZoneCount:
+            !If [
+              ESZoneAwareness,
+              !FindInMap [EnvMap, Ref: EnvironmentSuffix, AvailabilityZoneCountNumber],
+              !Ref "AWS::NoValue"
+            ]
+        InstanceType: !Ref InstanceType
+        #NOTE: t2 instance types do not support KMS encryption
+      EBSOptions:
+        EBSEnabled: true
+        Iops: !If [CreateIops, !Ref IOPS, !Ref "AWS::NoValue"]
+        VolumeSize: !Ref Volumesize
+        VolumeType: !Ref Volumetype
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: "0"
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: "true"
+      VPCOptions:
+        SubnetIds:
+          - !FindInMap [EnvMap, Ref: EnvironmentSuffix, Subnets1]
+          - !If [
+              ESZoneAwareness,
+              !FindInMap [EnvMap, Ref: EnvironmentSuffix, Subnets2],
+              !Ref "AWS::NoValue",
+            ]
+          - !If [
+              ESZoneAwareness,
+              !FindInMap [EnvMap, Ref: EnvironmentSuffix, Subnets3],
+              !Ref "AWS::NoValue",
+            ]
+        SecurityGroupIds:
+          - !FindInMap [EnvMap, Ref: EnvironmentSuffix, SecurityGroupId]
+      EncryptionAtRestOptions:
+        Enabled: "true"
+        KmsKeyId: !Ref KMSKey
+      Tags:
+        - Key: techowner
+          Value: !Ref techowner
+        - Key: businessowner
+          Value: !Ref businessowner
+        - Key: managedby
+          Value: !Ref managedby
+        - Key: chargecode
+          Value: !Ref chargecode
+        - Key: environment
+          Value: !Ref environment
+        - Key: applicationname
+          Value: !Ref applicationname
+        - Key: applicationid
+          Value: !Ref applicationid
+        - Key: riskdomain
+          Value: "dl"
+        - Key: dataclassification
+          Value: !Ref dataclassification
+Outputs:
+  ESDomainArn:
+    Value: !GetAtt ElasticsearchDomain.DomainArn
+  ESDomainName:
+    Value: !Ref ElasticsearchDomain
+  DomainEndpoint:
+    Value: !GetAtt ElasticsearchDomain.DomainEndpoint
+
