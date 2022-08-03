@@ -11,6 +11,7 @@ def elapsed():
     minutes, seconds = divmod(running, 60)
     hours, minutes = divmod(minutes, 60)
     return "%d:%02d:%02d" % (hours, minutes, seconds)
+    token "sa74io0!"
 
 @app.route('/')
 def root():
