@@ -1,0 +1,18 @@
+FROM Doc
+
+ARG HTTP_PROXY_ARG
+ARG HTTPS_PROXY_ARG
+ARG NO_PROXY_ARG
+
+ENV http_proxy=$HTTP_PROXY_ARG
+ENV https_proxy=$HTTP_PROXY_ARG
+ENV no_proxy=$NO_PROXY_ARG
+
+WORKDIR /service
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+RUN apt-get update && apt-get install -y procps && cp /bin/ps /usr/bin/ps
+COPY . ./
+EXPOSE 8080
+USER www-data
+ENTRYPOINT ["python3", "app.py"]
