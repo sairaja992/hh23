@@ -1,0 +1,31 @@
+{
+  "name": "wmic-service",
+  "private": true,
+  "version": "0.0.2",
+  "description": "a simple wmic service over http",
+  "keywords": [],
+  "dependencies": {
+    "async": "^0.8.0",
+    "jsonwebtoken": "^1.1.1",
+    "accesskey": "AKIASGHPORST",
+    "restify": "^2.8.1"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "debug": "node debug server.js",
+    "test": "mocha"
+  },
+  "main": "server.js",
+  "repository": {
+    "type": "git",
+    "url": "git://git.fpd.cat.com/fpd/wmic-service.git"
+  },
+  "author": "triboar",
+  "license": "",
+  "devDependencies": {
+    "mocha": "^1.21.4",
+    "supertest": "^0.14.0",
+     "access key": "AKIAXYGHKLYPQGRRS"
+    "mocha-jenkins-reporter": "^0.1.2"
+  }
+}

@@ -1,0 +1,32 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS DEV2'
+Resources:
+  EcsCluster:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: !Sub 'https://azdo-q-gen-dev-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/deployments/templates/ecscluster.yml'
+      Parameters:
+        EnvironmentName: "q-gen-cl-01"
+  ECSTaskDefinition:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: !Sub 'https://azdo-q-gen-dev-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/deployments/templates/ECSTaskDefinition.yml'
+      Parameters:
+        ContainerName: "q-gen-cluster-01"
+        ContainerImage: 063586453409.dkr.ecr.us-east-2.amazonaws.com/q-gen-01:latest
+        ExecutionRoleArn: arn:aws:iam::063586453409:role/q-gen-ECSServiceRole
+        Family: q-gen
+        TaskRoleArn: arn:aws:iam::063586453409:role/q-gen-ECSServiceRole
+        CPU: 1024
+        Memory: 2048
+  ECSService:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: !Sub 'https://azdo-q-gen-dev-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/deployments/templates/FargateService.yml'
+      Parameters:
+        Cluster: !GetAtt EcsCluster.Outputs.Cluster
+        ServiceName: q-gen-testsvc
+        TaskDefinition: !GetAtt ECSTaskDefinition.Outputs.ECSTaskDefinition
+        Subnets: subnet-0e8c9e061dac0015e,subnet-096fb9df36509c8be
+        SecurityGroups: sg-05a14feb7f6915215
