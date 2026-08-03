@@ -16,7 +16,8 @@
 | 4 | High | Flask app runs with `debug=True` bound to `0.0.0.0` (Werkzeug debugger RCE) | `tesr` |
 | 5 | High | Elasticsearch access policy allows `Principal: "*"` with `es:*` | `echo-elasticsearch (1).yaml` |
 | 6 | High | Elasticsearch domain missing HTTPS enforcement & node-to-node encryption | `echo-elasticsearch (1).yaml` |
-| 7 | Medium | Known-vulnerable / EOL dependencies | `package.json`, `POM`, `package1.json` |
+| 7 | High | EOL Spring Boot 2.2.4 with known CVEs (incl. Spring4Shell) | `pom (2).xml`, `pom254.xml` |
+| 7b | Medium | Known-vulnerable / EOL dependencies | `package.json`, `POM`, `package1.json` |
 | 8 | Medium | EOL / unpinned container base images | `Dockerfile (1)`, `dockerarm` |
 | 9 | Medium | CI actions unpinned / outdated (`@preview`, `@v1`, `@v2`) | `.github/workflows/devsec.yml` |
 | 10 | Low | Hardcoded AWS account IDs, subnet/SG/ARN identifiers | `template.yaml`, `ecs-task-definition-xray.yaml`, `securityaudits3.py` |
@@ -78,7 +79,11 @@ DomainEndpointOptions: { EnforceHTTPS: true, TLSSecurityPolicy: Policy-Min-TLS-1
 ```
 and set `rest.action.multi.allow_explicit_index: "false"` unless explicitly required.
 
-### 7. Known-vulnerable / EOL dependencies — `package.json`, `POM`, `package1.json` (Medium)
+### 7. EOL Spring Boot 2.2.4 with known CVEs — `pom (2).xml`, `pom254.xml` (High)
+Both POMs pin `spring-boot-starter-parent 2.2.4.RELEASE` (Spring Framework 5.2.3, EOL since 2020). This line is affected by **CVE-2022-22965 "Spring4Shell"** (RCE on Spring Framework ≤5.2.19 running on JDK 9+ — and the paired `Dockerfile (1)` uses JDK 17), plus numerous fixed spring-web/spring-messaging CVEs. `spring-boot-devtools` is also declared as a dependency, which must never ship in a production image (it enables a remote debug/restart surface).
+**Fix:** Upgrade to a supported Spring Boot 3.x line; scope `spring-boot-devtools` to a non-production profile or remove it; scan the built JAR (OWASP Dependency-Check / Trivy).
+
+### 7b. Known-vulnerable / EOL dependencies — `package.json`, `POM`, `package1.json` (Medium)
 - `wmic-service` (`package.json`): `jsonwebtoken ^1.1.1`, `restify ^2.8.1`, `async ^0.8.0` — years-old, multiple CVEs.
 - Juice Shop (`POM` / `package1.json`): intentionally vulnerable, includes `jsonwebtoken 0.4.0`, `express-jwt 0.1.3`, `sanitize-html 1.4.2`, `unzipper 0.9.15`, deprecated `request`.
 **Fix:** Upgrade non-intentional projects; run `npm audit` / Dependabot / OWASP Dependency-Check in CI. (Juice Shop deps are expected-vulnerable by design.)
